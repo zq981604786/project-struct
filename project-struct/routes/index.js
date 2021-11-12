@@ -2,19 +2,21 @@
 const express = require('express')
 const router = express.Router()
 const fs = require('fs')
-const FILE_PATH = '/Users/zq/go/src/cam/back'
+// const FILE_PATH = '/Users/zq/go/src/cam/back'
+const FILE_PATH = '/Users/zhaoquan/go/src/cam/back'
 const { v4: uuidv4 } = require('uuid')
 /* GET home page. */
 
 router.get('/1', async function (req, res, next) {
   // const file = queryfile(FILE_PATH)
-  res.send(uuidv4())
+  // res.send(uuidv4())
+  res.render('index.jade', { data: 1 })
 })
 
 router.get('/2', async function (req, res, next) {
   const file = queryfile(FILE_PATH)
-  const data = await makeData(file.slice(1, 50))
-  res.send({ label: 'cam', name: 'cam', children: data, id: 'cam' })
+  const data = await makeData(file)
+  res.send({ label: 'cam', name: 'cam', children: data, id: uuidv4() })
 })
 
 async function makeData (list) {
