@@ -8,9 +8,9 @@ const { v4: uuidv4 } = require('uuid')
 /* GET home page. */
 
 router.get('/1', async function (req, res, next) {
-  // const file = queryfile(FILE_PATH)
-  // res.send(uuidv4())
-  res.render('index.jade', { data: 1 })
+  const file = queryfile(FILE_PATH)
+  const data = await makePackage(file.splice(1, 2))
+  res.send(data)
 })
 
 router.get('/2', async function (req, res, next) {
@@ -19,12 +19,15 @@ router.get('/2', async function (req, res, next) {
   res.send({ label: 'cam', name: 'cam', children: data, id: uuidv4() })
 })
 
-async function makeData (list) {
+async function makeData (list, level = 0) {
   if (list && list.length > 0) {
     const data = []
     for (const r of list) {
       const quote = []
       const outline = { name: r.name, children: [], label: r.name, id: uuidv4() }
+      if (level === 0) {
+        outline.collapsed = true
+      }
       if (!r.children) {
         const path = await readFile(`${r.path}/${r.name}`)
         quote.push(...(await getContent(path)))
@@ -33,9 +36,13 @@ async function makeData (list) {
         for (const i of r.children) {
           if (i.name.indexOf('.go') !== -1) {
             const path = await readFile(`${r.path}/${r.name}/${i.name}`)
-            quote.push(...(await getContent(path)))
+            const content = await getContent(path)
+            quote.push(...content)
+            outline.children.push({ name: i.name, label: i.name, id: uuidv4(), quote: content })
+          } else if (i.name.indexOf('.') !== -1) {
+            outline.children.push({ name: i.name, label: i.name, id: uuidv4() })
           } else {
-            const child = await makeData([i])
+            const child = await makeData([i], level + 1)
             if (child.length > 0) {
               outline.children.push(...child)
             }
@@ -94,11 +101,65 @@ async function getContent (data) {
   if (arr !== undefined && arr !== null && arr.length > 0) {
     const list = (arr[arr.length - 1]).replaceAll('\n\t', ',').replaceAll('\n', '').replaceAll('(', '').replaceAll(')', '').replaceAll('\t', '')
       .replaceAll('"', '')
+    console.log(list)
     return list.split(',').filter(r => {
-      return r !== ''
+      return r !== '' && r.indexOf('cam') !== -1
     })
   }
   return []
+}
+
+// 获取包名
+async function getPackage (data) {
+  // console.log(data)
+  const reg = /(?<=\?ckage (\s\S)*?)/g
+  const pack = reg.exec(data)
+  console.log(pack)
+  // if (arr !== undefined && arr !== null && arr.length > 0) {
+  //   const list = (arr[arr.length - 1]).replaceAll('\n\t', ',').replaceAll('\n', '').replaceAll('(', '').replaceAll(')', '').replaceAll('\t', '')
+  //     .replaceAll('"', '')
+  //   return list.split(',').filter(r => {
+  //     return r !== '' && r.indexOf('cam') !== -1
+  //   })
+  // }
+  return []
+}
+
+async function makePackage (list, level = 0) {
+  if (list && list.length > 0) {
+    const data = []
+    for (const r of list) {
+      const quote = []
+      const outline = { name: r.name, children: [], label: r.name, id: uuidv4() }
+      if (level === 0) {
+        outline.collapsed = true
+      }
+      if (!r.children) {
+        const path = await readFile(`${r.path}/${r.name}`)
+        quote.push(...(await getPackage(path)))
+        continue
+      } else {
+        for (const i of r.children) {
+          if (i.name.indexOf('.go') !== -1) {
+            const path = await readFile(`${r.path}/${r.name}/${i.name}`)
+            const content = await getPackage(path)
+            quote.push(...content)
+            outline.children.push({ name: i.name, label: i.name, id: uuidv4(), quote: content })
+          } else if (i.name.indexOf('.') !== -1) {
+            outline.children.push({ name: i.name, label: i.name, id: uuidv4() })
+          } else {
+            const child = await makeData([i], level + 1)
+            if (child.length > 0) {
+              outline.children.push(...child)
+            }
+          }
+        }
+      }
+      outline.quote = Array.from(new Set(quote))
+      data.push(outline)
+    }
+    return data
+  }
 }
 
 module.exports = router
