@@ -120,7 +120,7 @@ export default {
     };
   },
   mounted () {
-    this.test1()
+    this.test2()
   },
   methods: {
     test () {
@@ -489,6 +489,57 @@ export default {
             };
         })
     },
+    test2 () {
+      fetch('http://127.0.0.1:3001/1')
+        .then((res) => res.json())
+        .then((nodes) => {
+          let data = {
+            nodes,
+          }
+          const container = document.getElementById('container');
+          const width = container.scrollWidth;
+          const height = container.scrollHeight || 1100;
+
+          const edgeBundling = new G6.Bundling({
+            bundleThreshold: 0.1,
+          });
+
+          const graph = new G6.Graph({
+            container: 'container',
+            width,
+            height,
+            linkCenter: true,
+            layout: {
+              type: 'circular',
+              center: [width / 2, height / 2],
+              radius: height / 2.5,
+              ordering: null,
+            },
+            plugins: [edgeBundling],
+            defaultNode: {
+              size: [20, 20],
+              color: 'steelblue',
+            },
+            defaultEdge: {
+              size: 1,
+              color: '#999',
+            },
+          });
+          graph.data(data);
+          graph.render();
+
+          setTimeout(() => {
+            edgeBundling.bundling(data);
+          }, 1000);
+
+          if (typeof window !== 'undefined')
+            window.onresize = () => {
+              if (!graph || graph.get('destroyed')) return;
+              if (!container || !container.scrollWidth || !container.scrollHeight) return;
+              graph.changeSize(container.scrollWidth, container.scrollHeight);
+            };
+        })
+    }
   }
 };
 </script>

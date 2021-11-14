@@ -2,19 +2,29 @@
 const express = require('express')
 const router = express.Router()
 const fs = require('fs')
-// const FILE_PATH = '/Users/zq/go/src/cam/back'
-const FILE_PATH = '/Users/zhaoquan/go/src/cam/back'
+const FILE_PATH = '/Users/zq/go/src/cam/back'
+const STR = '/Users/zq/go/src/'
+// const FILE_PATH = '/Users/zhaoquan/go/src/cam/back'
 const { v4: uuidv4 } = require('uuid')
 /* GET home page. */
 
 router.get('/1', async function (req, res, next) {
   const file = queryfile(FILE_PATH)
-  const data = await makePackage(file)
+  const data = await makePackage(file.splice(1, 20))
   const list = []
   let id = 0
   for (const pack of data) {
     id = id + 1
-    list.push({ id, label: pack[1].label, package: pack[1].package })
+    const quote = []
+    const files = await queryfile(`${STR}${pack[1].label}/`)
+    for (const i of files) {
+      if (i && i.name.indexOf('.go') === -1) {
+        continue
+      }
+      const content = await readFile(`${i.path}${i.name}`)
+      quote.push(...(await getContent(content)))
+    }
+    list.push({ id: `${id}`, label: pack[1].label, package: pack[1].package, quote: Array.from(new Set(quote)) })
   }
   res.send(list)
 })
@@ -124,11 +134,13 @@ async function getPackage (data) {
   return ''
 }
 
-async function makePackage (list, father = '') {
+async function makePackage (list) {
   if (list && list.length > 0) {
     let data = new Map()
     for (const r of list) {
-      father === '' ? father = `${r.name}` : father = `${father}/${r.name}`
+      if (r.label.indexOf('.py') !== -1) {
+        continue
+      }
       if (!r.children) {
         continue
       } else {
@@ -136,7 +148,8 @@ async function makePackage (list, father = '') {
           if (i.name.indexOf('.go') !== -1) {
             const path = await readFile(`${r.path}/${r.name}/${i.name}`)
             const content = await getPackage(path)
-            data.set(`cam/back/${father}/${content}`, { label: `cam/back/${father}/${content}`, package: content })
+            const route = i.path.replace(STR, '')
+            data.set(route, { label: route, package: content })
           } else if (i.name.indexOf('.') !== -1) {
             continue
           } else {
