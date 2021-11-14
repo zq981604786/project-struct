@@ -9,8 +9,14 @@ const { v4: uuidv4 } = require('uuid')
 
 router.get('/1', async function (req, res, next) {
   const file = queryfile(FILE_PATH)
-  const data = await makePackage(file.splice(1, 2))
-  res.send(data)
+  const data = await makePackage(file)
+  const list = []
+  let id = 0
+  for (const pack of data) {
+    id = id + 1
+    list.push({ id, label: pack[1].label, package: pack[1].package })
+  }
+  res.send(list)
 })
 
 router.get('/2', async function (req, res, next) {
@@ -101,7 +107,6 @@ async function getContent (data) {
   if (arr !== undefined && arr !== null && arr.length > 0) {
     const list = (arr[arr.length - 1]).replaceAll('\n\t', ',').replaceAll('\n', '').replaceAll('(', '').replaceAll(')', '').replaceAll('\t', '')
       .replaceAll('"', '')
-    console.log(list)
     return list.split(',').filter(r => {
       return r !== '' && r.indexOf('cam') !== -1
     })
@@ -111,52 +116,35 @@ async function getContent (data) {
 
 // 获取包名
 async function getPackage (data) {
-  // console.log(data)
-  const reg = /(?<=\?ckage (\s\S)*?)/g
+  const reg = /ckage ((\w)*)/g
   const pack = reg.exec(data)
-  console.log(pack)
-  // if (arr !== undefined && arr !== null && arr.length > 0) {
-  //   const list = (arr[arr.length - 1]).replaceAll('\n\t', ',').replaceAll('\n', '').replaceAll('(', '').replaceAll(')', '').replaceAll('\t', '')
-  //     .replaceAll('"', '')
-  //   return list.split(',').filter(r => {
-  //     return r !== '' && r.indexOf('cam') !== -1
-  //   })
-  // }
-  return []
+  if (pack !== undefined && pack !== null && pack.length > 0) {
+    return pack[1]
+  }
+  return ''
 }
 
-async function makePackage (list, level = 0) {
+async function makePackage (list, father = '') {
   if (list && list.length > 0) {
-    const data = []
+    let data = new Map()
     for (const r of list) {
-      const quote = []
-      const outline = { name: r.name, children: [], label: r.name, id: uuidv4() }
-      if (level === 0) {
-        outline.collapsed = true
-      }
+      father === '' ? father = `${r.name}` : father = `${father}/${r.name}`
       if (!r.children) {
-        const path = await readFile(`${r.path}/${r.name}`)
-        quote.push(...(await getPackage(path)))
         continue
       } else {
         for (const i of r.children) {
           if (i.name.indexOf('.go') !== -1) {
             const path = await readFile(`${r.path}/${r.name}/${i.name}`)
             const content = await getPackage(path)
-            quote.push(...content)
-            outline.children.push({ name: i.name, label: i.name, id: uuidv4(), quote: content })
+            data.set(`cam/back/${father}/${content}`, { label: `cam/back/${father}/${content}`, package: content })
           } else if (i.name.indexOf('.') !== -1) {
-            outline.children.push({ name: i.name, label: i.name, id: uuidv4() })
+            continue
           } else {
-            const child = await makeData([i], level + 1)
-            if (child.length > 0) {
-              outline.children.push(...child)
-            }
+            const child = await makePackage([i], r.name)
+            data = new Map([...data, ...child])
           }
         }
       }
-      outline.quote = Array.from(new Set(quote))
-      data.push(outline)
     }
     return data
   }
